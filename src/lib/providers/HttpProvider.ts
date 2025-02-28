@@ -1,6 +1,6 @@
-import axios, { Method } from 'axios';
-import { hasProperties, isObject, isValidURL } from '../../utils/validations.js';
-import { HeadersType, HttpProviderInstance } from '../../types/Providers.js';
+import axios, {Method} from 'axios';
+import {hasProperties, isObject, isValidURL} from '../../utils/validations.js';
+import {HeadersType, HttpProviderInstance} from '../../types/Providers.js';
 
 export default class HttpProvider {
     host: string;
@@ -10,7 +10,8 @@ export default class HttpProvider {
     headers: HeadersType;
     statusPage: string;
     instance: HttpProviderInstance;
-    constructor(host: string, timeout = 30000, user = '', password = '', headers: HeadersType = {}, statusPage = '/') {
+
+    constructor(host: string, timeout = 30000, user = '', password = '', headers: HeadersType = {}, statusPage = '/', instance: HttpProviderInstance | null = null) {
         if (!isValidURL(host)) throw new Error('Invalid URL provided to HttpProvider');
 
         if (isNaN(timeout) || timeout < 0) throw new Error('Invalid timeout duration provided');
@@ -25,18 +26,21 @@ export default class HttpProvider {
         this.password = password;
         this.headers = headers;
         this.statusPage = statusPage;
-
-        this.instance = axios.create({
-            baseURL: host,
-            timeout: timeout,
-            headers: headers,
-            auth: user
-                ? {
-                      username: user,
-                      password,
-                  }
-                : undefined,
-        });
+        if (instance == null) {
+            this.instance = axios.create({
+                baseURL: host,
+                timeout: timeout,
+                headers: headers,
+                auth: user
+                    ? {
+                        username: user,
+                        password,
+                    }
+                    : undefined,
+            });
+        } else {
+            this.instance = instance;
+        }
     }
 
     setStatusPage(statusPage = '/') {
@@ -61,6 +65,6 @@ export default class HttpProvider {
                 url,
                 method,
             })
-            .then(({ data }) => data);
+            .then(({data}) => data);
     }
 }
