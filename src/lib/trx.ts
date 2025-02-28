@@ -122,7 +122,7 @@ export class Trx {
             .request<Block>(
                 'wallet/getblockbynum',
                 {
-                    num: parseInt(blockID),
+                    num: parseInt(blockID.toString()),
                 },
                 'post'
             )
@@ -440,8 +440,8 @@ export class Trx {
             .request<{ block: Block[] }>(
                 'wallet/getblockbylimitnext',
                 {
-                    startNum: parseInt(start),
-                    endNum: parseInt(end) + 1,
+                    startNum: parseInt(start.toString()),
+                    endNum: parseInt(end.toString()) + 1,
                 },
                 'post'
             )
@@ -472,8 +472,8 @@ export class Trx {
             .request<{ assetIssue: Token[] }>(
                 'wallet/getpaginatedassetissuelist',
                 {
-                    offset: parseInt(offset),
-                    limit: parseInt(limit),
+                    offset: parseInt(offset.toString()),
+                    limit: parseInt(limit.toString()),
                 },
                 'post'
             )
@@ -747,7 +747,7 @@ export class Trx {
             throw new Error('Invalid transaction provided');
 
         if (utils.isInteger(permissionId)) {
-            transaction.raw_data.contract[0].Permission_id = parseInt(permissionId);
+            transaction.raw_data.contract[0].Permission_id = parseInt(permissionId.toString());
         } else if (typeof transaction.raw_data.contract[0].Permission_id !== 'number') {
             transaction.raw_data.contract[0].Permission_id = 0;
         }
@@ -997,7 +997,7 @@ export class Trx {
         return this.tronWeb.fullNode.request(
             'wallet/getproposalbyid',
             {
-                id: parseInt(proposalID),
+                id: parseInt(proposalID.toString()),
             },
             'post'
         );

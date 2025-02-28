@@ -90,12 +90,12 @@ export class TransactionBuilder {
 
     async sendTrx(
         to: string,
-        amount = 0,
+        amount= 0,
         from: string = this.tronWeb.defaultAddress.hex as string,
         options: TransactionCommonOptions = {}
     ): Promise<Transaction<TransferContract>> {
         // accept amounts passed as strings
-        amount = parseInt(amount);
+        amount = parseInt(amount.toString());
 
         this.validator.notValid([
             {
@@ -133,12 +133,12 @@ export class TransactionBuilder {
 
     async sendToken(
         to: string,
-        amount = 0,
+        amount= 0,
         tokenId: string,
         from: string = this.tronWeb.defaultAddress.hex as string,
         options: TransactionCommonOptions = {}
     ): Promise<Transaction<TransferAssetContract>> {
-        amount = parseInt(amount);
+        amount = parseInt(amount.toString());
         this.validator.notValid([
             {
                 name: 'recipient',
@@ -219,7 +219,7 @@ export class TransactionBuilder {
             to_address: toHex(issuerAddress),
             owner_address: toHex(buyer as string),
             asset_name: fromUtf8(tokenId as string),
-            amount: parseInt(amount),
+            amount: parseInt(amount.toString()),
         };
 
         const transactionOptions = getTransactionOptions(options);
@@ -227,7 +227,7 @@ export class TransactionBuilder {
     }
 
     async freezeBalance(
-        amount = 0,
+        amount= 0,
         duration = 3,
         resource: Resource = 'BANDWIDTH',
         ownerAddress: string = this.tronWeb.defaultAddress.hex as string,
@@ -267,7 +267,7 @@ export class TransactionBuilder {
         ]);
         const data: FreezeBalanceContract = {
             owner_address: toHex(ownerAddress as string),
-            frozen_balance: parseInt(amount),
+            frozen_balance: parseInt(amount.toString()),
             frozen_duration: parseInt(String(duration)),
         };
         if (resource !== 'BANDWIDTH') {
@@ -349,7 +349,7 @@ export class TransactionBuilder {
         ]);
         const data: FreezeBalanceV2Contract = {
             owner_address: toHex(address as string),
-            frozen_balance: parseInt(amount),
+            frozen_balance: parseInt(amount.toString()),
         };
         if (resource !== 'BANDWIDTH') {
             data.resource = resource as Resource;
@@ -386,7 +386,7 @@ export class TransactionBuilder {
         ]);
         const data: UnfreezeBalanceV2Contract = {
             owner_address: toHex(address as string),
-            unfreeze_balance: parseInt(amount),
+            unfreeze_balance: parseInt(amount.toString()),
         };
         if (resource !== 'BANDWIDTH') {
             data.resource = resource as Resource;
@@ -467,7 +467,7 @@ export class TransactionBuilder {
         const data: DelegateResourceContract = {
             owner_address: toHex(address as string),
             receiver_address: toHex(receiverAddress),
-            balance: parseInt(amount),
+            balance: parseInt(amount.toString()),
         };
         if (resource !== 'BANDWIDTH') {
             data.resource = resource as Resource;
@@ -522,7 +522,7 @@ export class TransactionBuilder {
         const data: UnDelegateResourceContract = {
             owner_address: toHex(address as string),
             receiver_address: toHex(receiverAddress),
-            balance: parseInt(amount),
+            balance: parseInt(amount.toString()),
         };
         if (resource !== 'BANDWIDTH') {
             data.resource = resource as Resource;
@@ -645,7 +645,7 @@ export class TransactionBuilder {
         const voteList = entries.map(([srAddress, voteCount]) => {
             return {
                 vote_address: toHex(srAddress),
-                vote_count: parseInt(voteCount),
+                vote_count: parseInt(voteCount.toString()),
             };
         });
 
@@ -814,8 +814,8 @@ export class TransactionBuilder {
 
         const args: any = {
             owner_address: toHex(issuerAddress),
-            fee_limit: parseInt(feeLimit),
-            call_value: parseInt(callValue),
+            fee_limit: parseInt(feeLimit.toString()),
+            call_value: parseInt(callValue.toString()),
             consume_user_resource_percent: userFeePercentage,
             origin_energy_limit: originEnergyLimit,
             abi: JSON.stringify(abi),
@@ -825,8 +825,8 @@ export class TransactionBuilder {
         };
 
         // tokenValue and tokenId can cause errors if provided when the trx10 proposal has not been approved yet. So we set them only if they are passed to the method.
-        if (isNotNullOrUndefined(tokenValue)) {
-            args.call_token_value = parseInt(tokenValue as number);
+        if (isNotNullOrUndefined(tokenValue) && tokenValue != null) {
+            args.call_token_value = parseInt(tokenValue.toString());
         }
         if (isNotNullOrUndefined(tokenId)) {
             args.token_id = parseInt(tokenId);
@@ -1075,12 +1075,12 @@ export class TransactionBuilder {
             args.data = options.input;
         }
 
-        args.call_value = parseInt(callValue as number);
-        if (isNotNullOrUndefined(tokenValue)) args.call_token_value = parseInt(tokenValue as number);
+        args.call_value = parseInt(callValue != null ? callValue.toString() : 0);
+        if (isNotNullOrUndefined(tokenValue)) args.call_token_value = parseInt(tokenValue != null ? tokenValue.toString() : 0);
         if (isNotNullOrUndefined(tokenId)) args.token_id = parseInt(tokenId as string);
 
         if (!(options._isConstant || options.estimateEnergy)) {
-            args.fee_limit = parseInt(feeLimit as number);
+            args.fee_limit = parseInt(feeLimit != null ? feeLimit.toString() : 0);
         }
 
         if (options.permissionId) {
@@ -1320,7 +1320,7 @@ export class TransactionBuilder {
         if (!TronWeb.isAddress(ownerAddress)) throw new Error('Invalid owner address provided');
 
         const data: UpdateBrokerageContract = {
-            brokerage: parseInt(brokerage),
+            brokerage: parseInt(brokerage.toString()),
             owner_address: toHex(ownerAddress as string),
         };
 
@@ -1439,15 +1439,15 @@ export class TransactionBuilder {
             abbr: fromUtf8(abbreviation as string),
             description: fromUtf8(description),
             url: fromUtf8(url as string),
-            total_supply: parseInt(totalSupply),
-            trx_num: parseInt(trxRatio),
-            num: parseInt(tokenRatio),
-            start_time: parseInt(saleStart),
-            end_time: parseInt(saleEnd as number),
+            total_supply: parseInt(totalSupply.toString()),
+            trx_num: parseInt(trxRatio.toString()),
+            num: parseInt(tokenRatio.toString()),
+            start_time: parseInt(saleStart.toString()),
+            end_time: parseInt(saleEnd.toString()),
             frozen_supply: [
                 {
-                    frozen_amount: parseInt(frozenAmount),
-                    frozen_days: parseInt(frozenDuration),
+                    frozen_amount: parseInt(frozenAmount.toString()),
+                    frozen_days: parseInt(frozenDuration.toString()),
                 },
             ],
         };
@@ -1456,20 +1456,20 @@ export class TransactionBuilder {
                 delete data[key];
             }
         });
-        if (!(parseInt(frozenAmount) > 0)) {
+        if (!(parseInt(frozenAmount.toString()) > 0)) {
             delete data.frozen_supply;
         }
-        if (freeBandwidth && !isNaN(parseInt(freeBandwidth)) && parseInt(freeBandwidth) >= 0) {
-            data.free_asset_net_limit = parseInt(freeBandwidth);
+        if (freeBandwidth && !isNaN(parseInt(freeBandwidth.toString())) && parseInt(freeBandwidth.toString()) >= 0) {
+            data.free_asset_net_limit = parseInt(freeBandwidth.toString());
         }
-        if (freeBandwidthLimit && !isNaN(parseInt(freeBandwidthLimit)) && parseInt(freeBandwidthLimit) >= 0) {
-            data.public_free_asset_net_limit = parseInt(freeBandwidthLimit);
+        if (freeBandwidthLimit && !isNaN(parseInt(freeBandwidthLimit.toString())) && parseInt(freeBandwidthLimit.toString()) >= 0) {
+            data.public_free_asset_net_limit = parseInt(freeBandwidthLimit.toString());
         }
-        if (precision && !isNaN(parseInt(precision))) {
-            data.precision = parseInt(precision);
+        if (precision && !isNaN(parseInt(precision.toString()))) {
+            data.precision = parseInt(precision.toString());
         }
-        if (voteScore && !isNaN(parseInt(voteScore))) {
-            data.vote_score = parseInt(voteScore);
+        if (voteScore && !isNaN(parseInt(voteScore.toString()))) {
+            data.vote_score = parseInt(voteScore.toString());
         }
         const transactionOptions = getTransactionOptions(options);
         return createTransaction<AssetIssueContract>(
@@ -1617,11 +1617,11 @@ export class TransactionBuilder {
             url: fromUtf8(url as string),
         };
 
-        if (freeBandwidth && !isNaN(parseInt(freeBandwidth)) && parseInt(freeBandwidth) >= 0) {
-            data.new_limit = parseInt(freeBandwidth);
+        if (freeBandwidth && !isNaN(parseInt(freeBandwidth.toString())) && parseInt(freeBandwidth.toString()) >= 0) {
+            data.new_limit = parseInt(freeBandwidth.toString());
         }
-        if (freeBandwidthLimit && !isNaN(parseInt(freeBandwidthLimit)) && parseInt(freeBandwidthLimit) >= 0) {
-            data.new_public_limit = parseInt(freeBandwidthLimit);
+        if (freeBandwidthLimit && !isNaN(parseInt(freeBandwidthLimit.toString())) && parseInt(freeBandwidthLimit.toString()) >= 0) {
+            data.new_public_limit = parseInt(freeBandwidthLimit.toString());
         }
 
         const transactionOptions = getTransactionOptions(options);
@@ -1718,7 +1718,7 @@ export class TransactionBuilder {
 
         const data: ProposalDeleteContract = {
             owner_address: toHex(issuerAddress as string),
-            proposal_id: parseInt(proposalID as number),
+            proposal_id: parseInt(proposalID.toString()),
         };
 
         const transactionOptions = getTransactionOptions(options);
@@ -1756,7 +1756,7 @@ export class TransactionBuilder {
 
         const data: VoteProposalContract = {
             owner_address: toHex(voterAddress as string),
-            proposal_id: parseInt(proposalID),
+            proposal_id: parseInt(proposalID.toString()),
             is_add_approval: isApproval,
         };
 
@@ -1904,9 +1904,9 @@ export class TransactionBuilder {
 
         const data: ExchangeInjectContract = {
             owner_address: toHex(ownerAddress as string),
-            exchange_id: parseInt(exchangeID),
+            exchange_id: parseInt(exchangeID.toString()),
             token_id: fromUtf8(tokenName),
-            quant: parseInt(tokenAmount),
+            quant: parseInt(tokenAmount.toString()),
         };
 
         const transactionOptions = getTransactionOptions(options);
@@ -1952,9 +1952,9 @@ export class TransactionBuilder {
 
         const data: ExchangeWithdrawContract = {
             owner_address: toHex(ownerAddress as string),
-            exchange_id: parseInt(exchangeID),
+            exchange_id: parseInt(exchangeID.toString()),
             token_id: fromUtf8(tokenName),
-            quant: parseInt(tokenAmount),
+            quant: parseInt(tokenAmount.toString()),
         };
 
         const transactionOptions = getTransactionOptions(options);
@@ -2007,10 +2007,10 @@ export class TransactionBuilder {
 
         const data: ExchangeTransactionContract = {
             owner_address: toHex(ownerAddress as string),
-            exchange_id: parseInt(exchangeID),
+            exchange_id: parseInt(exchangeID.toString()),
             token_id: TronWeb.fromAscii(tokenName).replace(/^0x/, ''),
-            quant: parseInt(tokenAmountSold),
-            expected: parseInt(tokenAmountExpected),
+            quant: parseInt(tokenAmountSold.toString()),
+            expected: parseInt(tokenAmountExpected.toString()),
         };
 
         const transactionOptions = getTransactionOptions(options);
@@ -2253,7 +2253,7 @@ export class TransactionBuilder {
         }
 
         if (options.extension) {
-            options.extension = parseInt(options.extension * 1000);
+            options.extension = parseInt((options.extension * 1000).toString());
             if (isNaN(options.extension) || transaction.raw_data.expiration + options.extension <= Date.now() + 3000)
                 throw new Error('Invalid extension provided');
             transaction.raw_data.expiration += options.extension;
