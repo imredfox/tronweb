@@ -18,7 +18,8 @@
         "./utils": {
             "import": "./lib/esm/utils/index.js",
             "require": "./lib/commonjs/utils/index.js"
-        }
+        },
+        "./src/lib/providers/HttpProvider": "./src/lib/providers/HttpProvider.js"
     },
     "keywords": [
         "TRON",
