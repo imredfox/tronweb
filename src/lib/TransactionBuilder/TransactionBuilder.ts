@@ -1075,12 +1075,12 @@ export class TransactionBuilder {
             args.data = options.input;
         }
 
-        args.call_value = parseInt(callValue != null ? callValue.toString() : 0);
-        if (isNotNullOrUndefined(tokenValue)) args.call_token_value = parseInt(tokenValue != null ? tokenValue.toString() : 0);
+        args.call_value = parseInt(callValue != null ? callValue.toString() : "0");
+        if (isNotNullOrUndefined(tokenValue)) args.call_token_value = parseInt(tokenValue != null ? tokenValue.toString() : "0");
         if (isNotNullOrUndefined(tokenId)) args.token_id = parseInt(tokenId as string);
 
         if (!(options._isConstant || options.estimateEnergy)) {
-            args.fee_limit = parseInt(feeLimit != null ? feeLimit.toString() : 0);
+            args.fee_limit = parseInt(feeLimit != null ? feeLimit.toString() : "0");
         }
 
         if (options.permissionId) {
