@@ -10,7 +10,8 @@ export default class HttpProvider {
     headers: HeadersType;
     statusPage: string;
     instance: HttpProviderInstance;
-    constructor(host: string, timeout = 30000, user = '', password = '', headers: HeadersType = {}, statusPage = '/') {
+
+    constructor(host: string, timeout = 30000, user = '', password = '', headers: HeadersType = {}, statusPage = '/', preInstance: HttpProviderInstance | null = null) {
         if (!isValidURL(host)) throw new Error('Invalid URL provided to HttpProvider');
 
         if (isNaN(timeout) || timeout < 0) throw new Error('Invalid timeout duration provided');
@@ -26,17 +27,21 @@ export default class HttpProvider {
         this.headers = headers;
         this.statusPage = statusPage;
 
-        this.instance = axios.create({
-            baseURL: host,
-            timeout: timeout,
-            headers: headers,
-            auth: user
-                ? {
-                      username: user,
-                      password,
-                  }
-                : undefined,
-        });
+        if (preInstance == null) {
+            this.instance = axios.create({
+                baseURL: host,
+                timeout: timeout,
+                headers: headers,
+                auth: user
+                    ? {
+                        username: user,
+                        password,
+                    }
+                    : undefined,
+            });
+        } else {
+            this.instance = preInstance;
+        }
     }
 
     setStatusPage(statusPage = '/') {

@@ -18,7 +18,8 @@
         "./utils": {
             "import": "./lib/esm/utils/index.js",
             "require": "./lib/commonjs/utils/index.js"
-        }
+        },
+        "./src/lib/providers/HttpProvider": "./src/lib/providers/HttpProvider.js"
     },
     "typesVersions": {
         "*": {
@@ -40,7 +41,7 @@
         "build:dist": "webpack --config webpack.config.js --progress --color",
         "build:all": "npm run clean:all && npm run build:esm && npm run build:cjs && npm run build:dist",
         "prepare": "npm run build",
-        "build": "npm run build:all",
+        "build": "npm run clean && npm run build:esm",
         "build:dev": "NODE_ENV=development npm run build",
         "clean:all": "rimraf dist lib",
         "clean": "rimraf dist",
@@ -59,7 +60,9 @@
         "ethers": "6.17.0",
         "eventemitter3": "5.0.1",
         "google-protobuf": "3.21.4",
+        "https-proxy-agent": "^9.1.0",
         "semver": "7.7.1",
+        "socks5-https-client": "^1.2.1",
         "tslib": "2.7.0",
         "validator": "13.15.23"
     },
