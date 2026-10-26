@@ -1,11 +1,10 @@
-import { ADDRESS_PREFIX, ADDRESS_PREFIX_BYTE, ADDRESS_SIZE } from './address.js';
+import { ADDRESS_PREFIX, ADDRESS_PREFIX_BYTE, ADDRESS_SIZE } from './constants.js';
 import { base64EncodeToString, base64DecodeFromString, hexStr2byteArray } from './code.js';
 import { encode58, decode58 } from './base58.js';
+import { Base64 } from './base64.js';
 import { byte2hexStr, byteArray2hexStr } from './bytes.js';
-import { keccak256, sha256, SigningKey, recoverAddress, arrayify, Signature } from './ethersUtils.js';
-import { TypedDataEncoder } from './typedData.js';
+import { keccak256, sha256, recoverAddress, arrayify, Signature } from './ethersUtils.js';
 import { secp256k1 as secp } from 'ethereum-cryptography/secp256k1';
-import type { TypedDataDomain, TypedDataField } from 'ethers';
 import { SignedTransaction } from '../types/Transaction.js';
 
 import type { BytesLike } from '../types/UtilsTypes.js';
@@ -24,14 +23,14 @@ export function getBase58CheckAddress(addressBytes: number[]) {
     return encode58(checkSum);
 }
 
-export function decodeBase58Address(base58Sting: string) {
-    if (typeof base58Sting != 'string') return false;
+export function decodeBase58Address(base58Str: string) {
+    if (typeof base58Str != 'string') return false;
 
-    if (base58Sting.length <= 4) return false;
+    if (base58Str.length <= 4) return false;
 
-    let address = decode58(base58Sting);
+    let address = decode58(base58Str);
 
-    if (base58Sting.length <= 4) return false;
+    if (address.length <= 4) return false;
 
     const len = address.length;
     const offset = len - 4;
@@ -44,10 +43,10 @@ export function decodeBase58Address(base58Sting: string) {
     const checkSum1 = hash1.slice(0, 4);
 
     if (
-        checkSum[0] == checkSum1[0] &&
-        checkSum[1] == checkSum1[1] &&
-        checkSum[2] == checkSum1[2] &&
-        checkSum[3] == checkSum1[3]
+        checkSum[0] === checkSum1[0] &&
+        checkSum[1] === checkSum1[1] &&
+        checkSum[2] === checkSum1[2] &&
+        checkSum[3] === checkSum1[3]
     ) {
         return address;
     }
@@ -63,7 +62,13 @@ export function signTransaction(priKeyBytes: string | BytesLike, transaction: an
     const signature = ECKeySign(hexStr2byteArray(txID), priKeyBytes);
 
     if (Array.isArray(transaction.signature)) {
-        if (!transaction.signature.includes(signature)) transaction.signature.push(signature);
+        // Signatures coming back from the chain may carry a 0x prefix and differ
+        // in hex casing from locally generated ones, so compare normalized values.
+        const normalizedSignature = signature.replace(/^0x/, '').toLowerCase();
+        const alreadySigned = transaction.signature.some(
+            (sig: string) => sig.replace(/^0x/, '').toLowerCase() === normalizedSignature
+        );
+        if (!alreadySigned) transaction.signature.push(signature);
     } else transaction.signature = [signature];
     return transaction;
 }
@@ -78,7 +83,7 @@ export function ecRecover(signedData: string, signature: string) {
 }
 
 export function arrayToBase64String(a: number[]) {
-    return btoa(String.fromCharCode(...a));
+    return new Base64().encodeIgnoreUtf8(a);
 }
 
 export function signBytes(privateKey: string | BytesLike, contents: BytesLike) {
@@ -90,26 +95,10 @@ export function signBytes(privateKey: string | BytesLike, contents: BytesLike) {
     return signBytes;
 }
 
-export function _signTypedData(
-    domain: TypedDataDomain,
-    types: Record<string, Array<TypedDataField>>,
-    value: Record<string, any>,
-    privateKey: string
-) {
-    const key = `0x${privateKey.replace(/^0x/, '')}`;
-    const signingKey = new SigningKey(key);
-
-    const messageDigest = TypedDataEncoder.hash(domain, types, value);
-    const signature = signingKey.sign(messageDigest);
-    const signatureHex = ['0x', signature.r.substring(2), signature.s.substring(2), Number(signature.v).toString(16)].join('');
-    return signatureHex;
-}
-
 export function getRowBytesFromTransactionBase64(base64Data: string): Uint8Array {
     const bytesDecode = base64DecodeFromString(base64Data);
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const transaction = globalThis.proto.protocol.Transaction.deserializeBinary(bytesDecode);
+    const { Transaction } = (globalThis as any).TronWebProto;
+    const transaction = Transaction.deserializeBinary(bytesDecode);
     const raw = transaction.getRawData();
 
     return raw.serializeBinary();
@@ -245,14 +234,15 @@ export function SHA256(msgBytes: BytesLike) {
     return hexStr2byteArray(hashHex);
 }
 
-export function passwordToAddress(password: string) {
-    const com_priKeyBytes = base64DecodeFromString(password);
+export function passwordToAddress(priKeyBase64: string) {
+    const com_priKeyBytes = base64DecodeFromString(priKeyBase64);
     const com_addressBytes = getAddressFromPriKey(com_priKeyBytes);
 
     return getBase58CheckAddress(com_addressBytes);
 }
 
 export function pkToAddress(privateKey: string, strict = false) {
+    privateKey = privateKey.replace(/^0x/, '');
     const com_priKeyBytes = hexStr2byteArray(privateKey, strict);
     const com_addressBytes = getAddressFromPriKey(com_priKeyBytes);
 
@@ -260,5 +250,5 @@ export function pkToAddress(privateKey: string, strict = false) {
 }
 
 export function sha3(string: string, prefix = true) {
-    return (prefix ? '0x' : '') + keccak256(Buffer.from(string, 'utf-8')).toString().substring(2);
+    return (prefix ? '0x' : '') + keccak256(new TextEncoder().encode(string)).toString().substring(2);
 }

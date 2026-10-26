@@ -1,6 +1,254 @@
 Change Log
 =========
 
+__6.5.1__
+
+## Improvements
+
+- Inputs are validated and processed from a plain-data snapshot
+
+  Several APIs now take a plain-data snapshot of their inputs at entry and use that snapshot consistently for validation and processing. Previously they read the caller's object several times, so a `Proxy` or a getter could show the validation one value and hand a different one to the signing or the request. An operation is now always carried out against the same input state it was validated against.
+
+  Affected: `sign`, `multiSign`, `signTypedData` (incl. `_signTypedData`, `utils.typedData.signTypedData`), `ecRecover`, `newTxID` (incl. `extendExpiration`, `addUpdateData`), ABI loading in `Contract` (constructor, `loadAbi`, `at`), and `triggerSmartContract` / `triggerConstantContract` / `triggerConfirmedConstantContract` / `estimateEnergy` (both the options and the `parameters` argument). Contract method `.call()` / `.send()` and the `read` / `write` namespaces inherit the same behavior.
+
+- Caller-provided objects are no longer modified
+
+  - `sign` no longer appends to the transaction's `signature` array, and `multiSign` no longer writes `Permission_id`. Code that kept using the object it passed in must switch to the returned transaction.
+  - `triggerConstantContract` / `triggerConfirmedConstantContract` / `estimateEnergy` no longer write internal flags into the options object, so a reused options object no longer carries them into later calls.
+  - `Contract` no longer lowercases `type` / `stateMutability` in the caller's ABI, and `contract.abi` is now an internal copy. Edits made to the original ABI after loading no longer affect the contract instance.
+
+- Input requirements
+
+  Snapshotting preserves `bigint`, and `Uint8Array` where it was already supported (typed-data byte values such as `salt`, `bytes` arguments in `parameters` / `parametersV2`). Plain objects and arrays from another realm (an iframe, a `vm` context) are accepted like local ones.
+
+  Inputs that are not plain data are now rejected: class instances, `Date`, functions, typed arrays outside the two cases above, circular references, and nesting deeper than 64 levels. A snapshot rejection is reported as `Invalid transaction provided`, `Invalid typed data`, `Invalid options provided`, `Invalid parameters provided` or `Invalid ABI provided`, followed by the reason and the path to the offending value (for example `Invalid options provided: unsupported Date at options.feeLimit`). The reason-and-path suffix is specific to the snapshot check. Other errors keep their existing messages: the transaction checks in `sign` / `multiSign` still throw a bare `Invalid transaction provided`, and ABI encoding, parameter validation and node-side errors are unchanged.
+
+  For `signTypedData` / `verifyTypedData` (and `hashTypedData`) these requirements apply to `domain` and `types` only. The `value` argument is not restricted by type: it is walked along the type definitions, each field declared in `types` is read once and handed to the EIP-712 encoder as it is (a `Uint8Array` is copied), and only the encoder's own per-type checks apply to the leaves. Fields that `types` does not declare are ignored as before, whatever they hold — a `Date`, a class instance or a function there is not rejected.
+
+__6.5.0__
+
+## New Features
+
+- Added `trx.raw` — chain reads without int64 precision loss
+
+  Added a `tronWeb.trx.raw` namespace that mirrors the chain-reading methods of `trx` (`getBalance`, `getAccount`, `getBlock`, `getTransaction`, `getTransactionInfo`, `getAccountResources`, token / proposal / exchange queries, ...) but issues them as GET requests with `int64_as_string=true` (java-tron#6699). The node then serializes int64 / uint64 fields as JSON strings, so values above 2^53 - 1 (`Number.MAX_SAFE_INTEGER`) reach JavaScript without precision loss. Return types reflect this at compile time: int64 fields are typed (and arrive) as strings, via the new `Types.Int64AsString` / `Types.Precise64` mapped types.
+
+  - `getCurrentBlock` / `getConfirmedCurrentBlock` are rerouted in raw mode to the flag-honoring `wallet/getblock?detail=true` / `walletsolidity/getblock?detail=true` (`getnowblock` ignores the flag).
+  - Reads that cannot take the flag keep returning numbers in both modes: `getNodeInfo`, `listNodes`, `getBandwidthPrices`, `getEnergyPrices`, `getDelegatedResourceAccountIndexV2`, `getBrokerage` / `getUnconfirmedBrokerage`, the deprecated `getTransactionsToAddress` / `getTransactionsFromAddress` / `getTransactionsRelated`, `getSignWeight` / `getApprovedList`, and `getCurrentRefBlockParams` (feeds local transaction building and must stay on the number path).
+  - Requirements and caveats: the connected node must run a java-tron build that includes #6699 — older nodes ignore the flag and keep returning (possibly precision-lossy) numbers. Responses read via `trx.raw` must not be fed back into transaction-consuming endpoints (`sendRawTransaction`, `getSignWeight`, ...): the node rejects string-encoded int64 fields in request bodies.
+  - The plugin system cannot override the `raw` sub-module.
+
+## Improvements
+
+- `multiSign` verifies the transaction returned by `getSignWeight`
+
+  When `multiSign` is called with a `permissionId` on a transaction that does not carry one yet, it refreshes the transaction through `getSignWeight` and previously adopted the fullNode's response unchecked. It now verifies that the returned transaction matches the one submitted (including the injected `Permission_id`) before signing, and throws `Invalid transaction provided` otherwise — a compromised or malicious fullNode can no longer substitute a different transaction for signing.
+
+- Corrected `Types.Proposal` to match the node's JSON wire format
+
+  `Proposal.state` is now typed as the enum-name string the node actually returns (`'PENDING' | 'DISAPPROVED' | 'APPROVED' | 'CANCELED'`) instead of a numeric enum, and `Proposal.parameters` as the `{ key, value }[]` array the node serializes instead of a key/value map. Runtime values are unchanged — the previous declarations did not match what `getProposal` / `listProposals` return; code type-checked against the old numeric `state` (e.g. `state === 2`) now fails to compile and should compare against the string form.
+
+## Changes
+
+- Migrated the test stack from mocha / karma / chai / nyc to Vitest 4 (node suite plus a headless-Playwright browser suite). Vitest runs the TypeScript test sources directly and provisions test accounts in its `globalSetup`, so the `build:test` / `newaccount` npm scripts are gone; `test`, `test:watch`, `coverage` and `test:browser` are the remaining test scripts.
+
+__6.4.0__
+
+## New Features
+
+- Typed `read` / `write` contract namespaces
+
+  Added contract.read and contract.write namespaces for type-safe, ergonomic access to contract methods. Functions are split by state mutability: view / pure (constant call) functions are exposed under contract.read, while state-changing functions are exposed under contract.write. When an ABI is declared as const, function names and argument types are checked at compile time.
+
+  - Call as contract.read.methodName([arg0, arg1, ...], options) / contract.write.methodName([arg0, arg1, ...], options).
+  - The write `account` option is a private key: its derived address owns and signs the transaction, so a write can be issued from a non-default signer — including on an instance with no default key. A value that is not a private key is rejected. Treat this value as secret. For reads, a `from` option sets the caller address directly (validated as an address).
+  - Validation errors (argument count, signer, call value, account) are surfaced as promise rejections.
+  - ABI functions literally named read or write remain callable via the legacy flat surface (handled through a proxy).
+  - Each function is additionally exposed under its full selector, e.g. contract.read['balanceOf(address)'] / contract.write['transfer(address,uint256)']. The selector form pins that exact overload, so same-arity overloads can be addressed unambiguously. Note: namespaces now enumerate each method under both its bare name and its selector, so Object.keys / for…in over contract.read / contract.write return two entries per function.
+
+- Added `utils.abi.encodeFunctionData`
+
+  Added utils.abi.encodeFunctionData(funcABI, args) to build smart contract calldata (function selector + encoded parameters). Validates argument count and supports TRON-specific handling of trcToken (kept in the selector, encoded as `uint256`).
+
+- Added `transactionBuilder.updateWitness`
+
+  Added transactionBuilder.updateWitness(address, url, options) to create a WitnessUpdateContract transaction that updates a witness node URL. Validates the address and the URL format / length (≤ 256).
+
+## Improvements
+
+- Dropped `Buffer` in favor of `TextEncoder` / `TextDecoder`
+
+  Replaced Buffer`-based encoding in `tronweb, utils/crypto, utils/abi and utils/ethersUtils with TextEncoder / TextDecoder for better cross-environment (browser) compatibility. The conversion is byte-for-byte equivalent to the previous behavior.
+
+- `address.fromPrivateKey` accepts `0x`-prefixed private keys
+
+  TronWeb.address.fromPrivateKey now strips a leading 0x from the private key before deriving the address, so a private key works whether or not it carries the 0x prefix.
+
+## Changes
+
+- Bump axios from 1.15.0 to 1.18.0.
+- Bump dev dependency nyc to 18.
+- Add overrides for ws (8.21.0) and serialize-javascript (7.0.5) to pin security-patched versions.
+- build now runs the full build:all (esm, cjs, dist).
+
+__6.3.0__
+
+## New Features
+
+- **Added `trx.getContractInfo`**
+
+  Added `trx.getContractInfo(contractAddress)` method that retrieves detailed contract information via the `wallet/getcontractinfo` node API endpoint.
+
+- **Extended `deserializeTx` with full contract type coverage**
+
+  Added deserialization support for all remaining `TransactionBuilder` contract types via `raw_data_hex`:
+
+  - Account: `AccountCreateContract`, `AccountUpdateContract`, `SetAccountIdContract`, `AccountPermissionUpdateContract`
+  - Stake / Vote: `FreezeBalanceContract`, `UnfreezeBalanceContract`, `VoteWitnessContract`
+  - Proposal: `ProposalCreateContract`, `ProposalApproveContract`, `ProposalDeleteContract`
+  - Smart contract: `CreateSmartContract`, `UpdateSettingContract`, `UpdateEnergyLimitContract`, `ClearABIContract`
+  - DEX: `ExchangeCreateContract`, `ExchangeInjectContract`, `ExchangeWithdrawContract`, `ExchangeTransactionContract`
+  - `UpdateBrokerageContract`
+
+
+## Improvements
+
+- **Plugin restrictions**  
+
+  - Added `PROTECTED_MODULES` to prevent plugins from overriding 2 modules: `transactionBuilder`, `plugin`.  
+  - Added `PROTECTED_METHODS` to block plugins from overriding critical signing/key methods: `sign`, `signMessage`, `signMessageV2`, `signTransaction`, `signTypedData`, `multiSign`, `setPrivateKey`, `ecRecover`.  
+  - ⚠️ Note: Plugin support will be removed in the next major version.
+
+- **Bug fix**  
+
+  - Corrected the return type of the `getDelegatedResourceV2` in `trx.ts` to consistently return an array.
+
+## Changes
+
+- Remove dev dependency @eslint/eslintrc.
+- Bump serialize-javascript from 7.0.3 to 7.0.5.
+
+__6.2.2__
+
+## New Features
+
+- Added `getCreate2Address`
+
+  - Added support for `utils.address.getCreate2Address` utility method.
+
+  - Enables deterministic contract address computation using CREATE2.
+
+  - Useful for advanced contract deployment workflows and meta-deployment scenarios.
+
+## Improvements
+
+- Improvement in `decodeParams`
+
+    - Replaced {} with Object.create(null) in decodeParams.
+
+    - Prevents prototype pollution.
+
+- Robust argument encoding in `encodeArgs`
+
+  - Prevents valid falsy values from being incorrectly ignored.
+
+  - Improves reliability of contract parameter encoding.
+
+- Strict contract type validation in `contractJsonToProtobuf`
+
+    - Now throws an explicit error when encountering unsupported contract.type.
+
+    - Prevents silent failures during contract conversion.
+
+    - Improves developer debugging experience.
+
+__6.2.1__
+
+## Changes
+
+- Bump `axios` from v1.12.2 to v1.13.5
+- Bump `webpack` from v5.98.0 to v5.105.2
+
+__6.2.0__
+
+## New Features
+
+- **`trx.getNowWitnessList`**
+  Added a new method to retrieve the witness list with real-time vote counts. This feature is available for JAVA-TRON v4.8.1 and above.
+
+- **New deserialization support**  
+  Added support for deserializing the following transaction types from `raw_data_hex`:
+
+    - `TransferAssetContract`
+    - `ParticipateAssetIssueContract`
+    - `AssetIssueContract`
+    - `UpdateAssetContract`
+
+__6.1.1__
+
+## Changes
+
+- Remove dependency `jsonwebtoken`.
+- Bump `validator` from v13.15.20 to v13.15.23.
+- Address other audit issues.
+
+__6.1.0__
+
+## New Features
+
+- **New deserialization support**  
+  Added support for deserializing the following transaction types from `raw_data_hex`:
+
+    - `TransferContract`
+    - `WithdrawBalanceContract`
+    - `WitnessCreateContract`
+
+- **`trx.getCurrentRefBlockParams`**  
+  Provides a method to retrieve the parameters required for transaction building. Users can pass these parameters to transaction constructors and customize the header information, making transaction creation more convenient.
+
+- **`trx.signTypedData` alias**  
+  Added `trx.signTypedData` as an alias pointing to the legacy `trx._signTypedData` method.
+
+## Changes
+
+- Removed `getHeaderInfo` from the `transactionBuilder` helper library. Use `trx.getCurrentRefBlockParams` instead.
+
+- Moved the `deserializeTransaction` function from `utils/transaction` to `utils/deserializeTx` for better scalability and maintainability of future modules.
+
+- Dependency updates:
+    - `axios` upgraded from 1.11.0 to 1.12.2
+    - `puppeteer` upgraded from 24.4.0 to 24.23.0
+
+__6.0.4__
+
+## New Features
+- Improve type inference in `Contract` module when using typescript.
+    - The `Contract` now infers method signatures based on the provided ABI.
+    - To enable accurate inference, the ABI should be defined using the `as const` assertion or passed directly into tronWeb.contract().
+
+## Change
+- Change the return behavior of the `contract.new()` method.
+    - Previously, this method mutated the current instance and used the ABI stored on the Tron blockchain, which proved to be unreliable. It now returns a new instance that uses the ABI provided in the options parameter.
+- Export `GetEventResultOptions` and `EventResponse`.
+- Allow using length as the value of the name field in the ABI, but you cannot use `result['length']` to read its value.
+- Bump `axios` from 1.8.3 to 1.11.0, bump `eslint` from 9.22.0 to 9.31.0.
+
+## Bug Fixes
+- Fix the issue where `addUpdateData` treats numeric strings as numbers.[#629](https://github.com/tronprotocol/tronweb/issues/629)
+    - Starting from TronWeb v6.0.4, `addUpdateData` will use `TronWeb.fromUtf8` to convert the provided data string—unless it starts with '0x'.
+    - If the resulting data string has an odd length, a '0' will be prepended to ensure even length.
+
+__6.0.3__
+- Add support for deserializing 6 more transactions.
+- Fix npm audit issues.
+- Fix the error in the abi variable within `transactionBuilder.createSmartContract`.
+- Export Method class.
+- Add missing fields in internal_transactions.
+
+__6.0.2__
+- Bump axios from 1.7.4 to 1.8.3.
+- Fix npm audit problems.
+
 __6.0.1__
 - Support deserialize TriggerSmartContract transaction by raw_data_hex.
 - Replace `@tronweb3/google-protobuf` with `google-protobuf`.

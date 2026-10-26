@@ -13,6 +13,7 @@ const {
     WithdrawBalanceContract,
     FreezeBalanceV2Contract,
     UnfreezeBalanceV2Contract,
+    CancelAllUnfreezeV2Contract,
     WithdrawExpireUnfreezeContract,
     DelegateResourceContract,
     UnDelegateResourceContract,
@@ -35,7 +36,7 @@ import '../protocol/core/contract/common_pb.cjs';
 const { ResourceCode } = globalThis.TronWebProto;
 
 import '../protocol/core/contract/witness_contract_pb.cjs';
-const { WitnessCreateContract, VoteWitnessContract } = globalThis.TronWebProto;
+const { WitnessCreateContract, WitnessUpdateContract, VoteWitnessContract } = globalThis.TronWebProto;
 
 import '../protocol/core/contract/storage_contract_pb.cjs';
 const { UpdateBrokerageContract } = globalThis.TronWebProto;
@@ -52,7 +53,6 @@ const { ExchangeCreateContract, ExchangeInjectContract, ExchangeWithdrawContract
     globalThis.TronWebProto;
 
 import { byteArray2hexStr } from './bytes.js';
-import { hexStr2byteArray } from './code.js';
 import { sha256, keccak256 } from './ethersUtils.js';
 import TronWeb from '../tronweb.js';
 import { isHex } from './validations.js';
@@ -83,7 +83,7 @@ const flexToUint8Array = (str: string, visible: boolean) => {
 };
 
 const sha3 = (string: string, prefix = true) => {
-    return (prefix ? '0x' : '') + keccak256(Buffer.from(string, 'utf-8')).toString().substring(2);
+    return (prefix ? '0x' : '') + keccak256(new TextEncoder().encode(string)).toString().substring(2);
 };
 
 const buildCommonTransaction = (message, contractType, typeName, permissionId) => {
@@ -255,12 +255,12 @@ const buildFreezeBalanceV2Contract = (value, options) => {
 };
 
 const buildCancelFreezeBalanceV2Contract = (value, options) => {
-    const withdrawExpireUnfreeze = new WithdrawExpireUnfreezeContract();
+    const cancelAllUnfreezeV2Contract = new CancelAllUnfreezeV2Contract();
     const { owner_address } = value;
-    withdrawExpireUnfreeze.setOwnerAddress(fromHexString(owner_address));
+    cancelAllUnfreezeV2Contract.setOwnerAddress(fromHexString(owner_address));
 
     return buildCommonTransaction(
-        withdrawExpireUnfreeze,
+        cancelAllUnfreezeV2Contract,
         Transaction.Contract.ContractType.CANCELALLUNFREEZEV2CONTRACT,
         'CancelAllUnfreezeV2Contract',
         options.Permission_id
@@ -339,6 +339,20 @@ const buildCreateWitness = (value, options) => {
         createWitnessContract,
         Transaction.Contract.ContractType.WITNESSCREATECONTRACT,
         'WitnessCreateContract',
+        options.Permission_id
+    );
+};
+
+// updateWitness
+const buildUpdateWitness = (value, options) => {
+    const updateWitnessContract = new WitnessUpdateContract();
+    const { owner_address, update_url } = value;
+    updateWitnessContract.setOwnerAddress(fromHexString(owner_address));
+    updateWitnessContract.setUpdateUrl(stringToUint8Array(update_url.replace(/^0x/, '')));
+    return buildCommonTransaction(
+        updateWitnessContract,
+        Transaction.Contract.ContractType.WITNESSUPDATECONTRACT,
+        'WitnessUpdateContract',
         options.Permission_id
     );
 };
@@ -854,6 +868,8 @@ const contractJsonToProtobuf = (contract, value, options) => {
             return buildWithdrawExpireUnfreezeContract(value, options);
         case 'WitnessCreateContract':
             return buildCreateWitness(value, options);
+        case 'WitnessUpdateContract':
+            return buildUpdateWitness(value, options);
         case 'VoteWitnessContract':
             return buildVoteWitnessAccount(value, options);
         case 'CreateSmartContract':
@@ -892,6 +908,8 @@ const contractJsonToProtobuf = (contract, value, options) => {
             return buildAccountPermissionUpdateContract(value, options);
         case 'UpdateAssetContract':
             return buildUpdateAssetContract(value, options);
+        default:
+            throw new Error('Unsupported transaction type: ' + contract.type);
     }
 };
 
@@ -989,47 +1007,4 @@ const txPbToTxID = (transactionPb) => {
     return txID;
 };
 
-
-
-const DCommonData = (rawDataHex: string) => {
-    const pb = Transaction.raw.deserializeBinary(hexStr2byteArray(rawDataHex));
-    const contract = pb.getContractList()[0];
-    const valuePb = contract.getParameter().getValue();
-    return [
-        {
-            contract: [
-                {
-                    parameter: {
-                        value: {},
-                        type_url: contract.getParameter().getTypeUrl(),
-                    },
-                    type: contract.getType(),
-                    Permission_id: contract.getPermissionId(),
-                },
-            ],
-            data: byteArray2hexStr(pb.getData()),
-            fee_limit: pb.getFeeLimit(),
-            ref_block_bytes: byteArray2hexStr(pb.getRefBlockBytes_asU8()),
-            ref_block_hash: byteArray2hexStr(pb.getRefBlockHash_asU8()),
-            expiration: pb.getExpiration(),
-            timestamp: pb.getTimestamp(),
-        },
-        valuePb,
-    ];
-};
-
-const DTriggerSmartContract = (rawDataHex: string) => {
-    const [commonData, valuePb] = DCommonData(rawDataHex);
-    const triggerSmartContract = TriggerSmartContract.deserializeBinary(valuePb);
-    commonData.contract[0].parameter.value = {
-        owner_address: byteArray2hexStr(triggerSmartContract.getOwnerAddress_asU8()),
-        contract_address: byteArray2hexStr(triggerSmartContract.getContractAddress_asU8()),
-        call_value: triggerSmartContract.getCallValue(),
-        data: byteArray2hexStr(triggerSmartContract.getData_asU8()),
-        call_token_value: triggerSmartContract.getCallTokenValue(),
-        token_id: triggerSmartContract.getTokenId(),
-    };
-    return commonData;
-};
-
-export { txJsonToPb, txPbToTxID, txPbToRawDataHex, txJsonToPbWithArgs, txCheckWithArgs, txCheck, DTriggerSmartContract };
+export { txJsonToPb, txPbToTxID, txPbToRawDataHex, txJsonToPbWithArgs, txCheckWithArgs, txCheck };

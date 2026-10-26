@@ -1,9 +1,9 @@
 import { TronWeb } from '../../tronweb.js';
 import { Transaction, TransactionWrapper } from '../../types/Transaction.js';
 import { txCheckWithArgs, txJsonToPb, txPbToTxID, txPbToRawDataHex } from '../../utils/transaction.js';
+import { clonePlainData } from '../../utils/clone.js';
 import { keccak256 } from '../../utils/ethersUtils.js';
-import { BlockWithoutDetail } from '../../types/APIResponse.js';
-import HttpProvider from '../providers/HttpProvider.js';
+import { hexStr2byteArray } from '../../utils/code.js';
 import { ContractParamter, ContractType } from '../../types/Contract.js';
 import { TriggerConstantContractOptions } from '../../types/TransactionBuilder.js';
 
@@ -14,6 +14,7 @@ export function fromUtf8(value: string) {
 export function deepCopyJson<T = unknown>(json: object): T {
     return JSON.parse(JSON.stringify(json));
 }
+
 export function resultManager(transaction: TransactionWrapper, data: unknown, options: TriggerConstantContractOptions) {
     if (transaction.Error) throw new Error(transaction.Error);
 
@@ -25,6 +26,32 @@ export function resultManager(transaction: TransactionWrapper, data: unknown, op
         return transaction;
     }
     throw new Error('Invalid transaction');
+}
+
+/**
+ * Deep-copies the options of `triggerSmartContract` into plain data. The copy keeps `Uint8Array`
+ * values (`bytes` arguments in `parametersV2`); anything else that is not plain data (functions,
+ * `Date`, circular references, ...) is rejected with `Invalid options provided: <reason> at <path>`.
+ */
+export function cloneTriggerOptions<T>(options: T): T {
+    return clonePlainData(options, {
+        root: 'options',
+        bytes: true,
+        invalid: (reason, path) => new Error(`Invalid options provided: ${reason} at ${path}`),
+    });
+}
+
+/**
+ * Deep-copies the `parameters` of `triggerSmartContract` (`{ type, value }` entries) into plain
+ * data. The copy keeps `Uint8Array` values (`bytes` arguments); anything else that is not plain
+ * data is rejected with `Invalid parameters provided: <reason> at <path>`.
+ */
+export function cloneParameters<T>(parameters: T): T {
+    return clonePlainData(parameters, {
+        root: 'parameters',
+        bytes: true,
+        invalid: (reason, path) => new Error(`Invalid parameters provided: ${reason} at ${path}`),
+    });
 }
 
 export function resultManagerTriggerSmartContract(
@@ -51,22 +78,11 @@ export function resultManagerTriggerSmartContract(
 export function genContractAddress(ownerAddress: string, txID: string) {
     return (
         '41' +
-        keccak256(Buffer.from(txID + ownerAddress, 'hex'))
+        keccak256(new Uint8Array(hexStr2byteArray(txID + ownerAddress)))
             .toString()
             .substring(2)
             .slice(24)
     );
-}
-
-export function getHeaderInfo(node: HttpProvider) {
-    return node.request<BlockWithoutDetail>('wallet/getblock', { detail: false }, 'post').then((data) => {
-        return {
-            ref_block_bytes: data.block_header.raw_data.number.toString(16).slice(-4).padStart(4, '0'),
-            ref_block_hash: data.blockID.slice(16, 32),
-            expiration: data.block_header.raw_data.timestamp + 60 * 1000,
-            timestamp: data.block_header.raw_data.timestamp,
-        };
-    });
 }
 
 function checkBlockHeader(options = {} as Partial<Transaction['raw_data']>): boolean {
@@ -114,7 +130,7 @@ export async function createTransaction<T extends ContractParamter>(
                     type,
                 },
             ],
-            ...(checkBlockHeader(options) ? ({} as Transaction['raw_data']) : await getHeaderInfo(tronWeb.fullNode)),
+            ...(checkBlockHeader(options) ? ({} as Transaction['raw_data']) : await tronWeb.trx.getCurrentRefBlockParams()),
             ...options,
         },
     };

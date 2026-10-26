@@ -1,4 +1,3 @@
-import { TronWeb } from '../tronweb.js';
 import {
     keccak256,
     recoverAddress,
@@ -15,16 +14,19 @@ import {
     zeroPadValue,
     assertArgument,
     id,
+    SigningKey,
 } from 'ethers';
 import type { BigNumberish, BytesLike, SignatureLike } from 'ethers';
 
-import { ADDRESS_PREFIX_REGEX } from './address.js';
+import { toHex } from './address.js';
+import { clonePlainData } from './clone.js';
+import { ADDRESS_PREFIX_REGEX } from './constants.js';
 
 function getAddress(address: string) {
-    return TronWeb.address.toHex(address).replace(ADDRESS_PREFIX_REGEX, '0x');
+    return toHex(address).replace(ADDRESS_PREFIX_REGEX, '0x');
 }
 function getTronAddress(address: string) {
-    return TronWeb.address.toHex(address);
+    return toHex(address);
 }
 
 const padding = new Uint8Array(32);
@@ -469,10 +471,12 @@ export class TypedDataEncoder {
         // Struct
         const fields = this.types[type];
         if (fields) {
+            // Null prototype: a field named `__proto__` must land as an own property
+            // instead of hitting the `Object.prototype` setter and being dropped.
             return fields.reduce((accum, { name, type }) => {
                 accum[name] = this._visit(type, value[name], callback);
                 return accum;
-            }, <Record<string, any>>{});
+            }, <Record<string, any>>Object.create(null));
         }
 
         assertArgument(false, `unknown type: ${type}`, 'type', type);
@@ -675,6 +679,70 @@ export class TypedDataEncoder {
     }
 }
 
+// A deep copy of the `domain` or `types` input of `signTypedData`. Accepts `Uint8Array` values
+// (`salt`) and rejects anything that is not plain data with `Invalid typed data: <reason> at <path>`.
+// `value` does not go through here: see `hashTypedData`.
+function cloneInput<T>(input: T, root: string): T {
+    return clonePlainData(input, {
+        root,
+        bytes: true,
+        invalid: (reason, path) => new Error(`Invalid typed data: ${reason} at ${path}`),
+    });
+}
+
+// Copies a leaf of the `value` walk: `Uint8Array` leaves into fresh arrays, everything else as is.
+// Checked like the clone helpers do — `instanceof` would miss arrays from another realm.
+function copyLeaf(_type: string, leaf: unknown): unknown {
+    if (ArrayBuffer.isView(leaf) && Object.prototype.toString.call(leaf) === '[object Uint8Array]') {
+        return new Uint8Array(leaf as Uint8Array);
+    }
+    return leaf;
+}
+
+/**
+ *  Hash the typed data from a snapshot of its inputs.
+ *
+ *  `domain` and `types` are deep-copied into plain data before anything reads them.
+ *  Anything there that is not plain data (a class instance, a `Date`, a function, a
+ *  circular reference, ...) is rejected with `Invalid typed data: <reason> at <path>`.
+ *
+ *  `value` is not restricted by type. It is walked along the type definitions: each
+ *  field declared in `types` is read from the caller's object exactly once and handed
+ *  to the EIP-712 encoder as it is (a `Uint8Array` leaf is copied), so only the
+ *  encoder's own per-type checks apply to the leaves. Fields that `types` does not
+ *  declare are never read, whatever they hold.
+ *
+ *  The digest is computed from these copies, so signing and verifying read their
+ *  inputs the same way.
+ */
+export function hashTypedData(
+    domain: TypedDataDomain,
+    types: Record<string, Array<TypedDataField>>,
+    value: Record<string, any>
+): string {
+    domain = cloneInput(domain, 'domain');
+    types = cloneInput(types, 'types');
+    value = TypedDataEncoder.from(types).visit(value, copyLeaf);
+
+    return TypedDataEncoder.hash(domain, types, value);
+}
+
+export function signTypedData(
+    domain: TypedDataDomain,
+    types: Record<string, Array<TypedDataField>>,
+    value: Record<string, any>,
+    privateKey: string
+) {
+    const messageDigest = hashTypedData(domain, types, value);
+
+    const key = `0x${privateKey.replace(/^0x/, '')}`;
+    const signingKey = new SigningKey(key);
+
+    const signature = signingKey.sign(messageDigest);
+    const signatureHex = ['0x', signature.r.substring(2), signature.s.substring(2), Number(signature.v).toString(16)].join('');
+    return signatureHex;
+}
+
 /**
  *  Compute the address used to sign the typed data for the %%signature%%.
  */
@@ -684,5 +752,5 @@ export function verifyTypedData(
     value: Record<string, any>,
     signature: SignatureLike
 ): string {
-    return recoverAddress(TypedDataEncoder.hash(domain, types, value), signature);
+    return recoverAddress(hashTypedData(domain, types, value), signature);
 }

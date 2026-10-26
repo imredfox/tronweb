@@ -1,6 +1,6 @@
-import axios, {Method} from 'axios';
-import {hasProperties, isObject, isValidURL} from '../../utils/validations.js';
-import {HeadersType, HttpProviderInstance} from '../../types/Providers.js';
+import axios, { Method } from 'axios';
+import { hasProperties, isObject, isValidURL } from '../../utils/validations.js';
+import { HeadersType, HttpProviderInstance } from '../../types/Providers.js';
 
 export default class HttpProvider {
     host: string;
@@ -11,7 +11,7 @@ export default class HttpProvider {
     statusPage: string;
     instance: HttpProviderInstance;
 
-    constructor(host: string, timeout = 30000, user = '', password = '', headers: HeadersType = {}, statusPage = '/', instance: HttpProviderInstance | null = null) {
+    constructor(host: string, timeout = 30000, user = '', password = '', headers: HeadersType = {}, statusPage = '/', preInstance: HttpProviderInstance | null = null) {
         if (!isValidURL(host)) throw new Error('Invalid URL provided to HttpProvider');
 
         if (isNaN(timeout) || timeout < 0) throw new Error('Invalid timeout duration provided');
@@ -26,7 +26,8 @@ export default class HttpProvider {
         this.password = password;
         this.headers = headers;
         this.statusPage = statusPage;
-        if (instance == null) {
+
+        if (preInstance == null) {
             this.instance = axios.create({
                 baseURL: host,
                 timeout: timeout,
@@ -39,7 +40,7 @@ export default class HttpProvider {
                     : undefined,
             });
         } else {
-            this.instance = instance;
+            this.instance = preInstance;
         }
     }
 
@@ -65,6 +66,6 @@ export default class HttpProvider {
                 url,
                 method,
             })
-            .then(({data}) => data);
+            .then(({ data }) => data);
     }
 }

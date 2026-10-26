@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import { TronWeb, utils } from '../setup/TronWeb.js';
+import { TronWeb, utils, providers } from '../setup/TronWeb.js';
 import jlog from './jlog.js';
 
 import config from './config.js';
@@ -26,7 +26,7 @@ const getInstance = () => {
 };
 
 const newTestAccounts = async (amount: number) => {
-    const tronWeb = createInstance();
+    const tronWeb = createInstance({ fullNode: new providers.HttpProvider(FULL_NODE_API, 90000) });
 
     console.log(chalk.blue(`Generating ${amount} new accounts...`));
     await tronWeb.fullNode.request('/admin/temporary-accounts-generation?accounts=' + amount);
@@ -63,5 +63,6 @@ export default {
     newTestAccounts,
     getTestAccounts,
     TronWeb,
+    providers,
     utils,
 };

@@ -1,4 +1,4 @@
-import { assert } from 'chai';
+import { assert } from 'vitest';
 import tronWebBuilder from '../helpers/tronWebBuilder.js';
 import { BigNumber } from 'bignumber.js';
 
@@ -10,7 +10,7 @@ describe('TronWeb.utils', function () {
             assert.isTrue(tronWeb.utils.isValidURL('https://some.example.com:9090/casa?qe=3'));
             assert.isTrue(tronWeb.utils.isValidURL('www.example.com/welcome'));
 
-            assert.isTrue(tronWeb.utils.isValidURL('http:/some.example.com'));
+            assert.isTrue(tronWeb.utils.isValidURL('http://some.example.com'));
         });
     });
 
@@ -55,7 +55,7 @@ describe('TronWeb.utils', function () {
         it('should verify that a value is a JSON string', function () {
             const tronWeb = tronWebBuilder.createInstance();
 
-            const bigNumber = BigNumber('1234565432123456778765434456777');
+            const bigNumber = new BigNumber('1234565432123456778765434456777');
 
             assert.isTrue(tronWeb.utils.isBigNumber(bigNumber));
 
@@ -177,7 +177,7 @@ describe('TronWeb.utils', function () {
 
             // @ts-ignore
             const mapped = tronWeb.utils.mapEvent(event);
-            for (let key in mapped) {
+            for (const key in mapped) {
                 // @ts-ignore
                 assert.equal(mapped[key], expected[key]);
             }
@@ -185,7 +185,7 @@ describe('TronWeb.utils', function () {
     });
 
     describe('#parseEvent', function () {
-        // TODO
+        it.todo('should parse an event');
     });
 
     describe('#padLeft()', function () {
@@ -202,10 +202,34 @@ describe('TronWeb.utils', function () {
         it('should import sha256 from ethers and has a string', function () {
             const tronWeb = tronWebBuilder.createInstance();
 
-            const string = '0x' + Buffer.from('some string').toString('hex');
-            const hash = tronWeb.utils.ethersUtils.sha256(string);
+            const bytes = new TextEncoder().encode('some string');
+            const hash = tronWeb.utils.ethersUtils.sha256(bytes);
 
             assert.equal(hash, '0x61d034473102d7dac305902770471fd50f4c5b26f6831a56dd90b5184b3c30fc');
+        });
+
+        it('should import sha512 from ethers and has a string', function () {
+            const tronWeb = tronWebBuilder.createInstance();
+
+            const bytes = new TextEncoder().encode('some string');
+            const hash = tronWeb.utils.ethersUtils.sha512(bytes);
+
+            assert.equal(
+                hash,
+                '0x14925e01a7a0cf0801aa95fe52d542b578af58ae7997ada66db3a6eae68a329d50600a5b7b442eabf4ea77ea8ef5fe40acf2ab31d47311b2a232c4f64009aac1'
+            );
+        });
+
+        it('should import pbkdf2 from ethers and has a string', function () {
+            const tronWeb = tronWebBuilder.createInstance();
+
+            const password = tronWeb.fromUtf8('123456');
+            const salt = tronWeb.fromUtf8('test pbkdf2');
+            const iterations = 10;
+            const keylen = 10;
+            const hash = tronWeb.utils.ethersUtils.pbkdf2(password, salt, iterations, keylen, 'sha512');
+
+            assert.equal(hash, '0xac05a525426c7ae8385f');
         });
     });
 });

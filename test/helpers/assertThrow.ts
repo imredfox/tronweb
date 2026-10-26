@@ -1,9 +1,10 @@
-import { assert } from 'chai';
+import { assert } from 'vitest';
 
 export default async function (func: unknown, expectedError?: any, expectedErrorContains?: any) {
     let errMsg;
     try {
         await func;
+        assert.ok(false);
     } catch (err: any) {
         if (typeof err === 'object') {
             if (err.message) errMsg = err.message;

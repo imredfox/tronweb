@@ -1,6 +1,8 @@
 import {
     keccak256,
     sha256,
+    sha512,
+    pbkdf2,
     toUtf8Bytes,
     toUtf8String,
     recoverAddress,
@@ -33,12 +35,14 @@ const FormatTypes = {
 const isValidMnemonic = Mnemonic.isValidMnemonic;
 
 computeHmac.register((algorithm, key, data) => {
-    return computeHmac._(algorithm, Buffer.from(key), Buffer.from(data));
+    return computeHmac._(algorithm, getBytes(key), getBytes(data));
 });
 
 export {
     keccak256,
     sha256,
+    sha512,
+    pbkdf2,
     toUtf8Bytes,
     toUtf8String,
     recoverAddress,

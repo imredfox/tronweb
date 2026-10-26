@@ -1,11 +1,13 @@
 import { TronWeb } from '../../tronweb.js';
 import { AbiCoder, keccak256 } from '../../utils/ethersUtils.js';
-import { ADDRESS_PREFIX_REGEX, toHex } from '../../utils/address.js';
+import { toHex } from '../../utils/address.js';
+import { ADDRESS_PREFIX_REGEX } from '../../utils/constants.js';
 import { encodeParamsV2ByABI } from '../../utils/abi.js';
 import { CreateSmartContractTransaction, SignedTransaction, Transaction, TransactionWrapper } from '../../types/Transaction.js';
 import { Validator } from '../../paramValidator/index.js';
 import { GetSignWeightResponse } from '../../types/APIResponse.js';
-import { isArray, isInteger, isNotNullOrUndefined, isObject, isString } from '../../utils/validations.js';
+import { isArray, isHex, isInteger, isNotNullOrUndefined, isObject, isString } from '../../utils/validations.js';
+import { cloneTransaction } from '../../utils/clone.js';
 import {
     AccountCreateContract,
     AccountPermissionUpdateContract,
@@ -44,9 +46,12 @@ import {
     WithdrawBalanceContract,
     WithdrawExpireUnfreezeContract,
     WitnessCreateContract,
+    WitnessUpdateContract,
 } from '../../types/Contract.js';
 import {
     createTransaction,
+    cloneTriggerOptions,
+    cloneParameters,
     deepCopyJson,
     fromUtf8,
     genContractAddress,
@@ -90,7 +95,7 @@ export class TransactionBuilder {
 
     async sendTrx(
         to: string,
-        amount= 0,
+        amount = 0,
         from: string = this.tronWeb.defaultAddress.hex as string,
         options: TransactionCommonOptions = {}
     ): Promise<Transaction<TransferContract>> {
@@ -128,12 +133,18 @@ export class TransactionBuilder {
         };
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<TransferContract>(this.tronWeb, ContractType.TransferContract, data, options?.permissionId, transactionOptions);
+        return createTransaction<TransferContract>(
+            this.tronWeb,
+            ContractType.TransferContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     async sendToken(
         to: string,
-        amount= 0,
+        amount = 0,
         tokenId: string,
         from: string = this.tronWeb.defaultAddress.hex as string,
         options: TransactionCommonOptions = {}
@@ -176,7 +187,13 @@ export class TransactionBuilder {
         };
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<TransferAssetContract>(this.tronWeb, ContractType.TransferAssetContract, data, options?.permissionId, transactionOptions);
+        return createTransaction<TransferAssetContract>(
+            this.tronWeb,
+            ContractType.TransferAssetContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     async purchaseToken(
@@ -223,11 +240,17 @@ export class TransactionBuilder {
         };
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<ParticipateAssetIssueContract>(this.tronWeb, ContractType.ParticipateAssetIssueContract, data, options?.permissionId, transactionOptions);
+        return createTransaction<ParticipateAssetIssueContract>(
+            this.tronWeb,
+            ContractType.ParticipateAssetIssueContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     async freezeBalance(
-        amount= 0,
+        amount = 0,
         duration = 3,
         resource: Resource = 'BANDWIDTH',
         ownerAddress: string = this.tronWeb.defaultAddress.hex as string,
@@ -279,7 +302,13 @@ export class TransactionBuilder {
         }
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<FreezeBalanceContract>(this.tronWeb, ContractType.FreezeBalanceContract, data, options?.permissionId, transactionOptions);
+        return createTransaction<FreezeBalanceContract>(
+            this.tronWeb,
+            ContractType.FreezeBalanceContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     async unfreezeBalance(
@@ -319,7 +348,13 @@ export class TransactionBuilder {
         }
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<UnfreezeBalanceContract>(this.tronWeb, ContractType.UnfreezeBalanceContract, data as UnfreezeBalanceContract, options?.permissionId, transactionOptions);
+        return createTransaction<UnfreezeBalanceContract>(
+            this.tronWeb,
+            ContractType.UnfreezeBalanceContract,
+            data as UnfreezeBalanceContract,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     async freezeBalanceV2(
@@ -356,7 +391,13 @@ export class TransactionBuilder {
         }
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<FreezeBalanceV2Contract>(this.tronWeb, ContractType.FreezeBalanceV2Contract, data, options?.permissionId, transactionOptions);
+        return createTransaction<FreezeBalanceV2Contract>(
+            this.tronWeb,
+            ContractType.FreezeBalanceV2Contract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     async unfreezeBalanceV2(
@@ -393,7 +434,13 @@ export class TransactionBuilder {
         }
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<UnfreezeBalanceV2Contract>(this.tronWeb, ContractType.UnfreezeBalanceV2Contract, data, options?.permissionId, transactionOptions);
+        return createTransaction<UnfreezeBalanceV2Contract>(
+            this.tronWeb,
+            ContractType.UnfreezeBalanceV2Contract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     async cancelUnfreezeBalanceV2(
@@ -412,7 +459,13 @@ export class TransactionBuilder {
         };
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<CancelFreezeBalanceV2Contract>(this.tronWeb, ContractType.CancelAllUnfreezeV2Contract, data, options?.permissionId, transactionOptions);
+        return createTransaction<CancelFreezeBalanceV2Contract>(
+            this.tronWeb,
+            ContractType.CancelAllUnfreezeV2Contract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     async delegateResource(
@@ -480,7 +533,13 @@ export class TransactionBuilder {
         }
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<DelegateResourceContract>(this.tronWeb, ContractType.DelegateResourceContract, data, options?.permissionId, transactionOptions);
+        return createTransaction<DelegateResourceContract>(
+            this.tronWeb,
+            ContractType.DelegateResourceContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     async undelegateResource(
@@ -529,7 +588,13 @@ export class TransactionBuilder {
         }
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<UnDelegateResourceContract>(this.tronWeb, ContractType.UnDelegateResourceContract, data, options?.permissionId, transactionOptions);
+        return createTransaction<UnDelegateResourceContract>(
+            this.tronWeb,
+            ContractType.UnDelegateResourceContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     async withdrawExpireUnfreeze(
@@ -549,7 +614,13 @@ export class TransactionBuilder {
         };
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<WithdrawExpireUnfreezeContract>(this.tronWeb, ContractType.WithdrawExpireUnfreezeContract, data, options?.permissionId, transactionOptions);
+        return createTransaction<WithdrawExpireUnfreezeContract>(
+            this.tronWeb,
+            ContractType.WithdrawExpireUnfreezeContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     async withdrawBlockRewards(
@@ -569,7 +640,13 @@ export class TransactionBuilder {
         };
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<WithdrawBalanceContract>(this.tronWeb, ContractType.WithdrawBalanceContract, data, options?.permissionId, transactionOptions);
+        return createTransaction<WithdrawBalanceContract>(
+            this.tronWeb,
+            ContractType.WithdrawBalanceContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     async applyForSR(
@@ -604,7 +681,54 @@ export class TransactionBuilder {
         };
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<WitnessCreateContract>(this.tronWeb, ContractType.WitnessCreateContract, data, options?.permissionId, transactionOptions);
+        return createTransaction<WitnessCreateContract>(
+            this.tronWeb,
+            ContractType.WitnessCreateContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
+    }
+
+    async updateWitness(
+        address: string = this.tronWeb.defaultAddress.hex as string,
+        url = '',
+        options: TransactionCommonOptions = {}
+    ): Promise<Transaction<WitnessUpdateContract>> {
+        this.validator.notValid([
+            {
+                name: 'origin',
+                type: 'address',
+                value: address,
+            },
+            {
+                name: 'url',
+                type: 'url',
+                value: url as string,
+                msg: 'Invalid url provided',
+            },
+            {
+                name: 'url',
+                type: 'string',
+                value: url as string,
+                lte: 256,
+                msg: 'Invalid url provided',
+            },
+        ]);
+
+        const data: WitnessUpdateContract = {
+            owner_address: toHex(address as string),
+            update_url: fromUtf8(url as string),
+        };
+
+        const transactionOptions = getTransactionOptions(options);
+        return createTransaction<WitnessUpdateContract>(
+            this.tronWeb,
+            ContractType.WitnessUpdateContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     async vote(
@@ -655,7 +779,13 @@ export class TransactionBuilder {
         };
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<VoteWitnessContract>(this.tronWeb, ContractType.VoteWitnessContract, data, options?.permissionId, transactionOptions);
+        return createTransaction<VoteWitnessContract>(
+            this.tronWeb,
+            ContractType.VoteWitnessContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     async createSmartContract(
@@ -818,7 +948,7 @@ export class TransactionBuilder {
             call_value: parseInt(callValue.toString()),
             consume_user_resource_percent: userFeePercentage,
             origin_energy_limit: originEnergyLimit,
-            abi: JSON.stringify(abi),
+            abi: JSON.stringify(entries),
             bytecode,
             parameter,
             name,
@@ -829,7 +959,7 @@ export class TransactionBuilder {
             args.call_token_value = parseInt(tokenValue.toString());
         }
         if (isNotNullOrUndefined(tokenId)) {
-            args.token_id = parseInt(tokenId);
+            args.token_id = parseInt(tokenId.toString());
         }
 
         const contract: CreateSmartContract = {} as CreateSmartContract;
@@ -890,7 +1020,10 @@ export class TransactionBuilder {
                 callValue: params[3] as unknown as number,
             };
             params.splice(3, 1);
+        } else {
+            params[2] = cloneTriggerOptions(params[2] ?? {});
         }
+        params[3] = cloneParameters(params[3]);
         if (params[2]?.txLocal) {
             return this._triggerSmartContractLocal(...params);
         }
@@ -904,6 +1037,8 @@ export class TransactionBuilder {
         parameters: ContractFunctionParameter[] = [],
         issuerAddress: string = this.tronWeb.defaultAddress.hex as string
     ): Promise<TransactionWrapper> {
+        options = cloneTriggerOptions(options);
+        parameters = cloneParameters(parameters);
         options._isConstant = true;
         return this._triggerSmartContract(contractAddress, functionSelector, options, parameters, issuerAddress);
     }
@@ -915,6 +1050,8 @@ export class TransactionBuilder {
         parameters: ContractFunctionParameter[] = [],
         issuerAddress: string = this.tronWeb.defaultAddress.hex as string
     ): Promise<TransactionWrapper> {
+        options = cloneTriggerOptions(options);
+        parameters = cloneParameters(parameters);
         options._isConstant = true;
         options.confirmed = true;
         return this._triggerSmartContract(contractAddress, functionSelector, options, parameters, issuerAddress);
@@ -927,6 +1064,8 @@ export class TransactionBuilder {
         parameters: ContractFunctionParameter[] = [],
         issuerAddress: string = this.tronWeb.defaultAddress.hex as string
     ): Promise<{ result: { result: boolean }; energy_required: number }> {
+        options = cloneTriggerOptions(options);
+        parameters = cloneParameters(parameters);
         options.estimateEnergy = true;
         const result = await this._triggerSmartContract(contractAddress, functionSelector, options, parameters, issuerAddress);
         return result as { result: { result: boolean }; energy_required: number };
@@ -1074,7 +1213,6 @@ export class TransactionBuilder {
         } else if (options.input) {
             args.data = options.input;
         }
-
         args.call_value = parseInt(callValue != null ? callValue.toString() : "0");
         if (isNotNullOrUndefined(tokenValue)) args.call_token_value = parseInt(tokenValue != null ? tokenValue.toString() : "0");
         if (isNotNullOrUndefined(tokenId)) args.token_id = parseInt(tokenId as string);
@@ -1163,7 +1301,7 @@ export class TransactionBuilder {
         );
 
         if (args.function_selector) {
-            args.data = keccak256(Buffer.from(args.function_selector, 'utf-8')).toString().substring(2, 10) + args.parameter;
+            args.data = keccak256(new TextEncoder().encode(args.function_selector)).toString().substring(2, 10) + args.parameter;
         }
         const value: TriggerSmartContract = {
             data: args.data,
@@ -1305,8 +1443,15 @@ export class TransactionBuilder {
         }
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<ClearABIContract>(this.tronWeb, ContractType.ClearABIContract, data, options?.permissionId, transactionOptions);
+        return createTransaction<ClearABIContract>(
+            this.tronWeb,
+            ContractType.ClearABIContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
+
     async updateBrokerage(
         brokerage: number,
         ownerAddress: string = this.tronWeb.defaultAddress.hex as string,
@@ -1325,7 +1470,13 @@ export class TransactionBuilder {
         };
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<UpdateBrokerageContract>(this.tronWeb, ContractType.UpdateBrokerageContract, data, options?.permissionId, transactionOptions);
+        return createTransaction<UpdateBrokerageContract>(
+            this.tronWeb,
+            ContractType.UpdateBrokerageContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     async createToken(
@@ -1477,7 +1628,7 @@ export class TransactionBuilder {
             ContractType.AssetIssueContract,
             data as AssetIssueContract,
             options?.permissionId,
-            transactionOptions,
+            transactionOptions
         );
     }
 
@@ -1504,7 +1655,13 @@ export class TransactionBuilder {
         };
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<AccountCreateContract>(this.tronWeb, ContractType.AccountCreateContract, data, options?.permissionId, transactionOptions);
+        return createTransaction<AccountCreateContract>(
+            this.tronWeb,
+            ContractType.AccountCreateContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     async updateAccount(
@@ -1534,7 +1691,13 @@ export class TransactionBuilder {
         };
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<AccountUpdateContract>(this.tronWeb, ContractType.AccountUpdateContract, data, options?.permissionId, transactionOptions);
+        return createTransaction<AccountUpdateContract>(
+            this.tronWeb,
+            ContractType.AccountUpdateContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     async setAccountId(
@@ -1572,7 +1735,13 @@ export class TransactionBuilder {
         };
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<SetAccountIdContract>(this.tronWeb, ContractType.SetAccountIdContract, data, options?.permissionId, transactionOptions);
+        return createTransaction<SetAccountIdContract>(
+            this.tronWeb,
+            ContractType.SetAccountIdContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     async updateToken(
@@ -1625,7 +1794,13 @@ export class TransactionBuilder {
         }
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<UpdateAssetContract>(this.tronWeb, ContractType.UpdateAssetContract, data, options?.permissionId, transactionOptions);
+        return createTransaction<UpdateAssetContract>(
+            this.tronWeb,
+            ContractType.UpdateAssetContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     async sendAsset(
@@ -1690,7 +1865,13 @@ export class TransactionBuilder {
         };
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<ProposalCreateContract>(this.tronWeb, ContractType.ProposalCreateContract, data, options?.permissionId, transactionOptions);
+        return createTransaction<ProposalCreateContract>(
+            this.tronWeb,
+            ContractType.ProposalCreateContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     /**
@@ -1722,7 +1903,13 @@ export class TransactionBuilder {
         };
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<ProposalDeleteContract>(this.tronWeb, ContractType.ProposalDeleteContract, data, options?.permissionId, transactionOptions);
+        return createTransaction<ProposalDeleteContract>(
+            this.tronWeb,
+            ContractType.ProposalDeleteContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     /**
@@ -1761,7 +1948,13 @@ export class TransactionBuilder {
         };
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction(this.tronWeb, ContractType.ProposalApproveContract, data, options?.permissionId, transactionOptions);
+        return createTransaction(
+            this.tronWeb,
+            ContractType.ProposalApproveContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     /**
@@ -1808,7 +2001,13 @@ export class TransactionBuilder {
         };
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction(this.tronWeb, ContractType.ExchangeCreateContract, data, options?.permissionId, transactionOptions);
+        return createTransaction(
+            this.tronWeb,
+            ContractType.ExchangeCreateContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     /**
@@ -1862,7 +2061,13 @@ export class TransactionBuilder {
         };
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<ExchangeCreateContract>(this.tronWeb, ContractType.ExchangeCreateContract, data, options?.permissionId, transactionOptions);
+        return createTransaction<ExchangeCreateContract>(
+            this.tronWeb,
+            ContractType.ExchangeCreateContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     /**
@@ -1910,7 +2115,13 @@ export class TransactionBuilder {
         };
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction(this.tronWeb, ContractType.ExchangeInjectContract, data, options?.permissionId, transactionOptions);
+        return createTransaction(
+            this.tronWeb,
+            ContractType.ExchangeInjectContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     /**
@@ -1958,7 +2169,13 @@ export class TransactionBuilder {
         };
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<ExchangeWithdrawContract>(this.tronWeb, ContractType.ExchangeWithdrawContract, data, options?.permissionId, transactionOptions);
+        return createTransaction<ExchangeWithdrawContract>(
+            this.tronWeb,
+            ContractType.ExchangeWithdrawContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     /**
@@ -2014,7 +2231,13 @@ export class TransactionBuilder {
         };
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<ExchangeTransactionContract>(this.tronWeb, ContractType.ExchangeTransactionContract, data, options?.permissionId, transactionOptions);
+        return createTransaction<ExchangeTransactionContract>(
+            this.tronWeb,
+            ContractType.ExchangeTransactionContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     /**
@@ -2053,7 +2276,13 @@ export class TransactionBuilder {
         };
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<UpdateSettingContract>(this.tronWeb, ContractType.UpdateSettingContract, data, options?.permissionId, transactionOptions);
+        return createTransaction<UpdateSettingContract>(
+            this.tronWeb,
+            ContractType.UpdateSettingContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     /**
@@ -2092,7 +2321,13 @@ export class TransactionBuilder {
         };
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<UpdateEnergyLimitContract>(this.tronWeb, ContractType.UpdateEnergyLimitContract, data, options?.permissionId, transactionOptions);
+        return createTransaction<UpdateEnergyLimitContract>(
+            this.tronWeb,
+            ContractType.UpdateEnergyLimitContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
     private checkPermissions(permissions: Permission, type: number) {
@@ -2111,7 +2346,6 @@ export class TransactionBuilder {
                 if (
                     !TronWeb.isAddress(key.address) ||
                     !isInteger(key.weight) ||
-                    key.weight > permissions.threshold ||
                     key.weight < 1 ||
                     (type === 2 && !permissions.operations)
                 ) {
@@ -2125,11 +2359,15 @@ export class TransactionBuilder {
     async updateAccountPermissions(
         ownerAddress: string = this.tronWeb.defaultAddress.hex as string,
         ownerPermission: Permission,
-        witnessPermission?: Permission,
-        activesPermissions?: Permission | Permission[],
+        witnessPermission: Permission | undefined | null,
+        activesPermissions: Permission | Permission[],
         options: TransactionCommonOptions = {}
     ): Promise<Transaction<AccountPermissionUpdateContract>> {
         if (!TronWeb.isAddress(ownerAddress as Address)) throw new Error('Invalid ownerAddress provided');
+
+        ownerPermission = ownerPermission && deepCopyJson<Permission>(ownerPermission);
+        witnessPermission = witnessPermission && deepCopyJson<Permission>(witnessPermission);
+        activesPermissions = activesPermissions && deepCopyJson<Permission | Permission[]>(activesPermissions);
 
         if (!this.checkPermissions(ownerPermission, 0)) {
             throw new Error('Invalid ownerPermissions provided');
@@ -2140,7 +2378,7 @@ export class TransactionBuilder {
         }
 
         if (!Array.isArray(activesPermissions)) {
-            activesPermissions = [activesPermissions!];
+            activesPermissions = [activesPermissions];
         }
 
         for (const activesPermission of activesPermissions) {
@@ -2153,51 +2391,60 @@ export class TransactionBuilder {
             owner_address: toHex(ownerAddress as string),
         };
         if (ownerPermission) {
-            const _ownerPermissions = deepCopyJson<Partial<Permission>>(ownerPermission);
+            const _ownerPermissions: Partial<Permission> = ownerPermission;
             // for compatible with old way of building transaction from chain which type prop is omitted
             if ('type' in _ownerPermissions) {
                 delete _ownerPermissions.type;
             }
             _ownerPermissions.keys = _ownerPermissions.keys?.map(({ address, weight }) => ({
-                address: this.tronWeb.address.toHex(address),
+                address: toHex(address),
                 weight,
             }));
             data.owner = _ownerPermissions as Permission;
         }
         if (witnessPermission) {
-            const _witnessPermissions = deepCopyJson<Permission>(witnessPermission);
             // for compatible with old way of building transaction from chain which type prop is Witness
             // eslint-disable-next-line @typescript-eslint/ban-ts-comment
             // @ts-ignore
-            _witnessPermissions.type = 'Witness';
-            _witnessPermissions.keys = _witnessPermissions.keys.map(({ address, weight }) => ({
-                address: this.tronWeb.address.toHex(address),
+            witnessPermission.type = 'Witness';
+            witnessPermission.keys = witnessPermission.keys.map(({ address, weight }) => ({
+                address: toHex(address),
                 weight,
             }));
-            data.witness = _witnessPermissions;
+            data.witness = witnessPermission;
         }
         if (activesPermissions) {
-            const _activesPermissions = deepCopyJson<Permission[]>(activesPermissions);
             // for compatible with old way of building transaction from chain which type prop is Active
-            _activesPermissions.forEach((activePermissions: Permission) => {
+            activesPermissions.forEach((activePermissions: Permission) => {
                 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                 // @ts-ignore
                 activePermissions.type = 'Active';
             });
-            _activesPermissions.forEach((_activesPermission) => {
-                _activesPermission.keys = _activesPermission.keys.map(({ address, weight }) => ({
-                    address: this.tronWeb.address.toHex(address),
+            activesPermissions.forEach((activePermissions) => {
+                activePermissions.keys = activePermissions.keys.map(({ address, weight }) => ({
+                    address: toHex(address),
                     weight,
                 }));
             });
-            data.actives = _activesPermissions as Permission[];
+            data.actives = activesPermissions;
         }
 
         const transactionOptions = getTransactionOptions(options);
-        return createTransaction<AccountPermissionUpdateContract>(this.tronWeb, ContractType.AccountPermissionUpdateContract, data, options?.permissionId, transactionOptions);
+        return createTransaction<AccountPermissionUpdateContract>(
+            this.tronWeb,
+            ContractType.AccountPermissionUpdateContract,
+            data,
+            options?.permissionId,
+            transactionOptions
+        );
     }
 
-    async newTxID<T extends ContractParamter, U extends (SignedTransaction<T> | Transaction<T>)>(transaction: U, options: { txLocal?: boolean } = {}): Promise<U> {
+    async newTxID<T extends ContractParamter, U extends SignedTransaction<T> | Transaction<T>>(
+        transaction: U,
+        options: { txLocal?: boolean } = {}
+    ): Promise<U> {
+        transaction = cloneTransaction(transaction);
+
         if (options?.txLocal) {
             const contract = transaction.raw_data.contract[0];
             try {
@@ -2242,12 +2489,16 @@ export class TransactionBuilder {
         }
     }
 
-    async alterTransaction(transaction: Transaction, options: AlterTransactionOptions = {}) {
+    async alterTransaction<T extends Transaction>(transaction: T, options: AlterTransactionOptions = {}) {
+        transaction = cloneTransaction(transaction);
+
         if (Reflect.has(transaction, 'signature')) throw new Error('You can not extend the expiration of a signed transaction.');
 
         if (options.data) {
-            if (options.dataFormat !== 'hex') options.data = TronWeb.toHex(options.data);
-            options.data = options.data!.replace(/^0x/, '');
+            if (options.dataFormat !== 'hex' && !/^0x/.test(options.data)) options.data = TronWeb.fromUtf8(options.data);
+            if (!isHex(options.data)) throw new Error('Invalid data provided');
+            options.data = options.data.replace(/^0x/, '');
+            options.data = options.data.padStart(Math.ceil(options.data.length / 2) * 2, '0');
             if (options.data.length === 0) throw new Error('Invalid data provided');
             transaction.raw_data.data = options.data;
         }
@@ -2262,11 +2513,11 @@ export class TransactionBuilder {
         return await this.newTxID(transaction, { txLocal: options.txLocal });
     }
 
-    async extendExpiration(transaction: Transaction, extension: number, options: TxLocal = {}) {
+    async extendExpiration<T extends Transaction>(transaction: T, extension: number, options: TxLocal = {}) {
         return await this.alterTransaction(transaction, { extension, txLocal: options?.txLocal });
     }
 
-    async addUpdateData(transaction: Transaction, data: string, dataFormat: 'utf8' | 'hex' = 'utf8', options: TxLocal = {}) {
+    async addUpdateData<T extends Transaction>(transaction: T, data: string, dataFormat: 'utf8' | 'hex' = 'utf8', options: TxLocal = {}) {
         return this.alterTransaction(transaction, { data, dataFormat: dataFormat as string, txLocal: options?.txLocal });
     }
 }

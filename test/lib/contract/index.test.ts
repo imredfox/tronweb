@@ -1,5 +1,5 @@
 import { Address } from '../../../src/types/Trx';
-import { assert } from 'chai';
+import { assert } from 'vitest';
 import wait from '../../helpers/wait.js';
 import broadcaster from '../../helpers/broadcaster.js';
 import tronWebBuilder from '../../helpers/tronWebBuilder.js';
@@ -17,7 +17,7 @@ describe('#contract.index', function () {
     };
     let tronWeb: TronWeb;
 
-    before(async function () {
+    beforeAll(async function () {
         tronWeb = tronWebBuilder.createInstance();
         // ALERT this works only with Tron Quickstart:
         accounts = await tronWebBuilder.getTestAccounts(-1);
@@ -26,7 +26,7 @@ describe('#contract.index', function () {
     describe('#customError', function () {
         let customError: Contract;
 
-        before(async function () {
+        beforeAll(async function () {
             const tx = await broadcaster(
                 tronWeb.transactionBuilder.createSmartContract(
                     {
@@ -42,8 +42,16 @@ describe('#contract.index', function () {
 
         it('should revert with custom error', async () => {
             const txid = await customError.test(111).send();
-            await wait(10);
-            const data = await tronWeb.trx.getTransactionInfo(txid);
+            let data;
+            while (true) {
+                data = await tronWeb.trx.getTransactionInfo(txid);
+                if (Object.keys(data).length === 0) {
+                    await wait(3);
+                    continue;
+                } else {
+                    break;
+                }
+            }
             const errorData = data.contractResult;
             const expectedErrorData =
                 TronWeb.sha3('CustomError(uint256,uint256)', false).slice(0, 8) +

@@ -1,6 +1,6 @@
 import { BigNumber } from 'bignumber.js';
 import validator from 'validator';
-import { ADDRESS_PREFIX } from './address.js';
+import { ADDRESS_PREFIX } from './constants.js';
 import { AbiParamsCommon } from '../types/ABI.js';
 import { IBigNumber } from '../types/TronWeb.js';
 
@@ -107,7 +107,7 @@ export function parseEvent(event: EventQueryDataType, { inputs: abi }: { inputs:
             obj[name] = result;
 
             return obj;
-        }, {});
+        }, Object.create(null));
     }
 
     return event;

@@ -6,7 +6,7 @@ import EventEmitter from 'eventemitter3';
 import semver from 'semver';
 
 import { TransactionBuilder } from './lib/TransactionBuilder/TransactionBuilder.js';
-import { Trx } from './lib/trx.js';
+import { Trx } from './lib/trx/trx.js';
 import { Contract } from './lib/contract/index.js';
 import { Plugin } from './lib/plugin.js';
 import { Event } from './lib/event.js';
@@ -15,14 +15,14 @@ import { fromHex, fromPrivateKey, isAddress, toHex, toChecksumAddress, isChecksu
 import { HeadersType } from './types/Providers.js';
 import { isString } from './utils/validations.js';
 import { DefaultAddress, NodeProvider, TronWebOptions, IBigNumber } from './types/TronWeb.js';
-import { ContractAbiInterface } from './types/ABI.js';
+import { ContractAbiInterface, ContractInstance } from './types/ABI.js';
 import { Address } from './types/Trx.js';
 
-const DEFAULT_VERSION = '4.7.1';
+const DEFAULT_VERSION = '4.8.2';
 
 const FEE_LIMIT = 150000000;
 
-const version = '6.0.1';
+const version = '6.5.1';
 
 function isValidOptions(options: unknown): options is TronWebOptions {
     return (
@@ -167,8 +167,7 @@ export class TronWeb extends EventEmitter {
             throw new Error('Invalid private key provided');
         }
 
-        this.defaultPrivateKey = privateKey;
-        this.emit('privateKeyChanged', privateKey);
+        this.defaultPrivateKey = privateKey.replace(/^0x/, '');
     }
 
     setAddress(address: string) {
@@ -185,6 +184,7 @@ export class TronWeb extends EventEmitter {
             base58,
         };
 
+        // @deprecated - this emit will be removed in a future version
         this.emit('addressChanged', { hex, base58 });
     }
 
@@ -263,8 +263,8 @@ export class TronWeb extends EventEmitter {
         return this.event.getEventsByTransactionID(...params);
     }
 
-    contract(abi: ContractAbiInterface = [], address?: Address) {
-        return new Contract(this, abi, address!);
+    contract<Abi extends ContractAbiInterface>(abi: Abi = [] as any, address?: Address): ContractInstance<Abi> {
+        return new Contract<Abi>(this, abi, address!) as ContractInstance<Abi>;
     }
 
     address: typeof TronWeb.address;
@@ -290,7 +290,7 @@ export class TronWeb extends EventEmitter {
 
     sha3: typeof TronWeb.sha3;
     static sha3(string: string, prefix = true) {
-        return (prefix ? '0x' : '') + keccak256(Buffer.from(string, 'utf-8')).toString().substring(2);
+        return (prefix ? '0x' : '') + keccak256(new TextEncoder().encode(string)).toString().substring(2);
     }
 
     toHex: typeof TronWeb.toHex;
@@ -321,7 +321,7 @@ export class TronWeb extends EventEmitter {
     static toUtf8(hex: string) {
         if (utils.isHex(hex)) {
             hex = hex.replace(/^0x/, '');
-            return Buffer.from(hex, 'hex').toString('utf8');
+            return new TextDecoder().decode(new Uint8Array(utils.code.hexStr2byteArray(hex)));
         } else {
             throw new Error('The passed value is not a valid hex string');
         }
@@ -332,7 +332,7 @@ export class TronWeb extends EventEmitter {
         if (!utils.isString(string)) {
             throw new Error('The passed value is not a valid utf-8 string');
         }
-        return '0x' + Buffer.from(string, 'utf8').toString('hex');
+        return '0x' + utils.bytes.byteArray2hexStr(new TextEncoder().encode(string)).toLowerCase();
     }
 
     toAscii: typeof TronWeb.toAscii;
@@ -359,7 +359,9 @@ export class TronWeb extends EventEmitter {
         if (!utils.isString(string)) {
             throw new Error('The passed value is not a valid utf-8 string');
         }
-        return '0x' + Buffer.from(string, 'ascii').toString('hex').padEnd(padding!, '0');
+        const bytes = new Uint8Array(string.length);
+        for (let i = 0; i < string.length; i++) bytes[i] = string.charCodeAt(i) & 0xff;
+        return '0x' + utils.bytes.byteArray2hexStr(bytes).toLowerCase().padEnd(padding!, '0');
     }
 
     toDecimal: typeof TronWeb.toDecimal;
