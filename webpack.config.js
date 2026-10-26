@@ -16,6 +16,10 @@ module.exports = [
         module: {
             rules: [
                 {
+                    test: /\.cjs$/,
+                    type: 'javascript/auto'
+                },
+                {
                     test: /\.js$/,
                     exclude: /(node_modules|bower_components)/,
                     use: {

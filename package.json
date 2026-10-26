@@ -1,6 +1,6 @@
 {
-    "name": "tronweb",
-    "version": "6.0.1",
+    "name": "tronweb-redfox",
+    "version": "6.0.12",
     "description": "JavaScript SDK that encapsulates the TRON HTTP API",
     "main": "./lib/commonjs/index.js",
     "module": "./lib/esm/index.js",
@@ -18,24 +18,23 @@
         "./utils": {
             "import": "./lib/esm/utils/index.js",
             "require": "./lib/commonjs/utils/index.js"
-        },
-        "./src/lib/providers/HttpProvider": "./src/lib/providers/HttpProvider.js"
+        }
     },
     "keywords": [
         "TRON",
         "tronweb"
     ],
     "scripts": {
-        "build:esm": "tsc --project tsconfig.esm.json && echo '{\"type\": \"module\"}' > ./lib/esm/package.json && npm run copy-protocol:esm",
+        "build:esm": "tsc --project tsconfig.esm.json  && npm run copy-protocol:esm",
         "build:cjs": "tsc --project tsconfig.cjs.json && echo '{\"type\": \"commonjs\"}' > ./lib/commonjs/package.json && npm run copy-protocol:cjs",
         "build:types": "tsc --project tsconfig.types.json",
         "build:test": "tsc --project tsconfig.test.json && echo '{\"type\": \"commonjs\"}' > ./lib/commonjs/package.json && cp -R ./src/protocol ./lib/commonjs/src/",
         "build:dist": "webpack --config webpack.config.js --progress --color",
         "build:all": "npm run clean:all && npm run build:esm && npm run build:cjs && npm run build:dist",
-        "copy-protocol:cjs": "copy ./src/protocol ./lib/commonjs/",
-        "copy-protocol:esm": "copy .\\src\\protocol .\\lib\\esm\\",
+        "copy-protocol:cjs": "cp -R ./src/protocol ./lib/commonjs/",
+        "copy-protocol:esm": "cp -R ./src/protocol ./lib/esm/",
         "prepare": "husky install && npm run build",
-        "build": "npm run clean && npm run build:esm",
+        "build": "npm run clean && webpack --config webpack.config.js --progress --color",
         "build:dev": "NODE_ENV=development npm run build",
         "clean:all": "rimraf dist lib",
         "clean": "rimraf dist",
@@ -65,9 +64,7 @@
         "ethers": "^6.13.4",
         "eventemitter3": "^3.1.0",
         "google-protobuf": "^3.21.4",
-        "https-proxy-agent": "^7.0.6",
         "semver": "^5.6.0",
-        "socks5-https-client": "^1.2.1",
         "validator": "^13.7.0"
     },
     "devDependencies": {
