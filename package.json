@@ -32,13 +32,13 @@
         "tronweb"
     ],
     "scripts": {
-        "build:esm": "tsc --project tsconfig.esm.json && echo '{\"type\": \"module\"}' > ./lib/esm/package.json && npm run copy-protocol:esm",
-        "build:cjs": "tsc --project tsconfig.cjs.json && echo '{\"type\": \"commonjs\"}' > ./lib/commonjs/package.json && npm run copy-protocol:cjs",
+        "build:esm": "tsc --project tsconfig.esm.json && node -e \"require('node:fs').writeFileSync('./lib/esm/package.json', JSON.stringify({type:'module'}))\" && npm run copy-protocol:esm",
+        "build:cjs": "tsc --project tsconfig.cjs.json && node -e \"require('node:fs').writeFileSync('./lib/commonjs/package.json', JSON.stringify({type:'commonjs'}))\" && npm run copy-protocol:cjs",
+        "copy-protocol:esm": "node -e \"require('node:fs').cpSync('./src/protocol', './lib/esm/protocol', {recursive:true})\"",
+        "copy-protocol:cjs": "node -e \"require('node:fs').cpSync('./src/protocol', './lib/commonjs/protocol', {recursive:true})\"",
         "build:types": "tsc --project tsconfig.types.json",
         "build:dist": "webpack --config webpack.config.js --progress --color",
         "build:all": "npm run clean:all && npm run build:esm && npm run build:cjs && npm run build:dist",
-        "copy-protocol:cjs": "cp -R ./src/protocol ./lib/commonjs/",
-        "copy-protocol:esm": "cp -R ./src/protocol ./lib/esm/",
         "prepare": "npm run build",
         "build": "npm run build:all",
         "build:dev": "NODE_ENV=development npm run build",
