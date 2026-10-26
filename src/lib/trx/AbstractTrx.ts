@@ -150,7 +150,7 @@ export abstract class AbstractTrx<P extends boolean = false> {
         }
 
         const block = await this.readRequest<Precise64<Block, P>>('fullNode', 'wallet/getblockbynum', {
-            num: parseInt(blockID),
+            num: parseInt(blockID.toString()),
         });
         if (!Object.keys(block).length) {
             throw new Error('Block not found');
@@ -205,8 +205,8 @@ export abstract class AbstractTrx<P extends boolean = false> {
         }
 
         return this.readRequest<{ block: Precise64<Block, P>[] }>('fullNode', 'wallet/getblockbylimitnext', {
-            startNum: parseInt(start),
-            endNum: parseInt(end) + 1,
+            startNum: parseInt(start.toString()),
+            endNum: parseInt(end.toString()) + 1,
         }).then(({ block = [] }) => block);
     }
 
@@ -652,8 +652,8 @@ export abstract class AbstractTrx<P extends boolean = false> {
         }
 
         return this.readRequest<{ assetIssue: Token[] }>('fullNode', 'wallet/getpaginatedassetissuelist', {
-            offset: parseInt(offset),
-            limit: parseInt(limit),
+            offset: parseInt(offset.toString()),
+            limit: parseInt(limit.toString()),
         }).then(({ assetIssue = [] }) => assetIssue.map((token) => this._parseToken(token)) as Precise64<Token, P>[]);
     }
 
@@ -938,7 +938,7 @@ export abstract class AbstractTrx<P extends boolean = false> {
         }
 
         return this.readRequest('fullNode', 'wallet/getproposalbyid', {
-            id: parseInt(proposalID),
+            id: parseInt(proposalID.toString()),
         });
     }
 
@@ -1137,7 +1137,7 @@ export abstract class AbstractTrx<P extends boolean = false> {
             throw new Error('Invalid transaction provided');
 
         if (utils.isInteger(permissionId)) {
-            transaction.raw_data.contract[0].Permission_id = parseInt(permissionId);
+            transaction.raw_data.contract[0].Permission_id = parseInt(permissionId.toString());
         } else if (typeof transaction.raw_data.contract[0].Permission_id !== 'number') {
             transaction.raw_data.contract[0].Permission_id = 0;
         }
